@@ -1,0 +1,840 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// =====================
+// USER MODELS
+// =====================
+
+model User {
+  id                  Int       @id @default(autoincrement())
+  email               String    @unique @db.VarChar(255)
+  password            String    @db.VarChar(128)
+  name                String    @db.VarChar(255)
+  accountType         String    @default("human") @map("account_type") @db.VarChar(15) // human, humanize, agency
+  isActive            Boolean   @default(true) @map("is_active")
+  isStaff             Boolean   @default(false) @map("is_staff")
+  isSuperuser         Boolean   @default(false) @map("is_superuser")
+  dateJoined          DateTime  @default(now()) @map("date_joined")
+  lastLogin           DateTime? @map("last_login")
+
+  // Relations
+  humanRegistration    HumanOfficialRegistration?
+  humanProfile         HumanProfile?
+  humanModeling        HumanModeling?
+  humanVerification    HumanVerification?
+  humanPhoneVerification HumanPhoneVerification?
+  companyRegistration  CompanyOfficialRegistration?
+  companyProfile       CompanyProfile?
+  companyHiring        CompanyHiring?
+  notifications        Notification[]
+  sentConnectionRequests    CompanyConnectionRequest[] @relation("ConnectionSender")
+  receivedConnectionRequests CompanyConnectionRequest[] @relation("ConnectionReceiver")
+  children             Child[]
+  profileGallery       ProfileGallery[]
+  createdJobs          Job[]
+  interestRequests     InterestRequest[]
+  createdContests      Contest[]
+  participations       Participate[]
+  createdEvents        GenericEvent[]
+  eventInterests       EventInterestRequest[]
+  chatRooms            Room[] @relation("RoomCreator")
+  chatMessages         Message[]
+  reports              Report[] @relation("Reporter")
+  reportedBy           Report[] @relation("Abuser")
+  pendingRequestsReceived PendingRequest[] @relation("RequestReceiver")
+  pendingRequestsSent     PendingRequest[] @relation("RequestSender")
+
+  @@map("user_user")
+}
+
+// =====================
+// HUMAN (TALENT) MODELS
+// =====================
+
+model HumanOfficialRegistration {
+  id            Int       @id @default(autoincrement())
+  userId        Int?      @unique @map("user_id")
+  name          String    @db.VarChar(255)
+  profileName   String    @map("profile_name") @db.VarChar(255)
+  phone         String?   @unique @db.VarChar(128)
+  gender        String    @db.VarChar(20)
+  dob           DateTime  @db.Date
+  nationality   String    @db.VarChar(2)
+  placeOfLiving String    @map("place_of_living") @db.VarChar(100)
+  address       String?   @db.LongText
+  currentState  String    @default("pending") @map("current_state") @db.VarChar(120)
+  created       DateTime  @default(now()) @db.DateTime(6)
+  modified      DateTime  @updatedAt @db.DateTime(6)
+
+  user          User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("human_officialregistration")
+}
+
+model Height {
+  id        Int       @id @default(autoincrement())
+  height    String    @db.VarChar(20)
+  created   DateTime  @default(now()) @db.DateTime(6)
+  modified  DateTime  @updatedAt @db.DateTime(6)
+  
+  profiles  HumanProfile[]
+
+  @@map("conf_height")
+}
+
+model HumanProfile {
+  id                       Int       @id @default(autoincrement())
+  userId                   Int?      @unique @map("user_id")
+  officialRegistrationId   Int       @map("official_registration_id")
+  profileVisibility        String    @default("public") @map("profile_visibility") @db.VarChar(10)
+  profilePhoto             String    @default("") @map("profile_photo") @db.VarChar(500)
+  heightId                 Int?      @map("height_id")
+  bodyTypeId               Int?      @map("body_type_id")
+  selfieImage              String?   @map("selfie_image") @db.VarChar(100)
+  selfieDate               DateTime  @default(now()) @map("selfie_date") @db.Date
+  briefIntro               String?   @map("brief_intro") @db.LongText
+  twitterLink              String    @default("") @map("twitter_link") @db.VarChar(255)
+  instagramLink            String    @default("") @map("instagram_link") @db.VarChar(255)
+  facebookLink             String    @default("") @map("facebook_link") @db.VarChar(255)
+  snapchatLink             String    @default("") @map("snapchat_link") @db.VarChar(255)
+  tiktokLink               String    @default("") @map("tiktok_link") @db.VarChar(255)
+  youtubeLink              String    @default("") @map("youtube_link") @db.VarChar(255)
+  ratingAverage            Decimal?  @map("rating_avarage") @db.Decimal(9, 1)
+  ratingCount              Int?      @map("rating_count") @db.UnsignedInt
+  jobSectorId              Int?      @map("job_sector_id")
+  jobTitle                 String?   @map("job_title") @db.VarChar(120)
+  currentState             String    @default("pending") @map("current_state") @db.VarChar(30)
+  // NEW: Fields moved from HumanModeling for simplified workflow
+  modelBefore              Boolean   @default(false) @map("model_before")
+  price                    Decimal   @default(0) @db.Decimal(10, 3) // hourly rate KWD
+  otherModeling            String?   @map("other_modeling") @db.VarChar(100)
+
+  user                     User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  height                   Height?   @relation(fields: [heightId], references: [id])
+  jobSector                JobSector? @relation(fields: [jobSectorId], references: [id])
+  interests                HumanProfileInterest[]
+
+  @@map("human_profile")
+}
+
+// M2M join table for Profile <-> Interest
+model HumanProfileInterest {
+  id          Int          @id @default(autoincrement())
+  profileId   Int          @map("humanprofile_id")
+  interestId  Int          @map("interest_id")
+
+  profile     HumanProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  interest    Interest     @relation(fields: [interestId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, interestId])
+  @@map("human_profile_interests")
+}
+
+model HumanModeling {
+  id                       Int       @id @default(autoincrement())
+  userId                   Int?      @unique @map("user_id")
+  officialRegistrationId   Int       @map("official_registration_id")
+  modelBefore              Boolean   @default(false) @map("model_before")
+  otherModeling            String?   @map("other_modeling") @db.VarChar(100)
+  otherProduction          String?   @map("other_production") @db.VarChar(100)
+  otherPreference          String?   @map("other_preference") @db.VarChar(100)
+  price                    Decimal   @default(0) @db.Decimal(10, 3) // hourly rate KWD
+  currentStatus            String    @default("pending") @map("current_status") @db.VarChar(30)
+  created                  DateTime  @default(now()) @db.DateTime(6)
+  modified                 DateTime  @updatedAt @db.DateTime(6)
+
+  user                     User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  modelingTypes            HumanModelingType[]
+  productionTypes          HumanProductionType[]
+  preferences              HumanPreference[]
+
+  @@map("human_modeling")
+}
+
+model HumanModelingType {
+  id              Int           @id @default(autoincrement())
+  humanModelingId Int           @map("modeling_id")
+  modelingTypeId  Int           @map("modelingtype_id")
+
+  humanModeling   HumanModeling @relation(fields: [humanModelingId], references: [id], onDelete: Cascade)
+  modelingType    ModelingType  @relation(fields: [modelingTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([humanModelingId, modelingTypeId])
+  @@map("human_modeling_modeling_type")
+}
+
+model HumanProductionType {
+  id               Int            @id @default(autoincrement())
+  humanModelingId  Int            @map("modeling_id")
+  productionTypeId Int            @map("productiontype_id")
+
+  humanModeling    HumanModeling  @relation(fields: [humanModelingId], references: [id], onDelete: Cascade)
+  productionType   ProductionType @relation(fields: [productionTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([humanModelingId, productionTypeId])
+  @@map("human_modeling_production_type")
+}
+
+model HumanPreference {
+  id              Int           @id @default(autoincrement())
+  humanModelingId Int           @map("modeling_id")
+  preferenceId    Int           @map("preference_id")
+
+  humanModeling   HumanModeling @relation(fields: [humanModelingId], references: [id], onDelete: Cascade)
+  preference      Preference    @relation(fields: [preferenceId], references: [id], onDelete: Cascade)
+
+  @@unique([humanModelingId, preferenceId])
+  @@map("human_modeling_preference")
+}
+
+model HumanVerification {
+  id                       Int       @id @default(autoincrement())
+  userId                   Int?      @unique @map("user_id")
+  officialRegistrationId   Int       @map("official_registration_id")
+  civilId                  String    @default("") @map("civil_id") @db.VarChar(30)
+  passportId               String    @default("") @map("passport_id") @db.VarChar(30)
+  civilIdCopy              String    @default("") @map("civil_id_copy") @db.VarChar(100)
+  countryList              String    @default("") @map("country_list") @db.VarChar(2)
+  bankName                 String    @default("") @map("bank_name") @db.VarChar(30)
+  bankAddress              String    @default("") @map("bank_address") @db.VarChar(30)
+  accountHolderName        String    @default("") @map("account_holder_name") @db.VarChar(30)
+  accountHolderAddress     String    @default("") @map("account_holder_address") @db.VarChar(30)
+  accountNumberIBAN        String    @default("") @map("account_number_IBAN") @db.VarChar(30)
+  swiftNumber              String    @default("") @map("SWIFT_number") @db.VarChar(30)
+  status                   String    @default("pending") @db.VarChar(30)
+
+  user                     User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("human_verificationid")
+}
+
+model HumanPhoneVerification {
+  id                       Int       @id @default(autoincrement())
+  userId                   Int?      @unique @map("user_id")
+  officialRegistrationId   Int       @map("official_registration_id")
+  mobileNumber             String?   @unique @map("mobile_number") @db.VarChar(128)
+  code                     String    @default("") @db.VarChar(30)
+  status                   String    @default("pending") @db.VarChar(30)
+
+  user                     User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("human_phoneverification")
+}
+
+model ProfileGallery {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  childId   Int?      @map("child_id")
+  picture   String    @db.VarChar(500)
+  created   DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  child     Child?    @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@map("human_profilegallery")
+}
+
+model Child {
+  id            Int       @id @default(autoincrement())
+  parentId      Int       @map("parent_id")
+  fullName      String    @map("full_name") @db.VarChar(255)
+  profileName   String    @map("profile_name") @db.VarChar(50)
+  dob           DateTime  @db.Date
+  gender        String    @db.VarChar(10)
+  civilId       String?   @map("civil_id") @db.VarChar(20)
+  price         Float     @default(0)
+  profilePhoto  String?   @map("profile_photo") @db.VarChar(500)
+  coverImage    String?   @map("cover_image") @db.VarChar(500)
+  brief         String?   @db.Text
+  rating        Float     @default(0)
+  created       DateTime  @default(now())
+  modified      DateTime  @updatedAt
+
+  parent        User      @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  gallery       ProfileGallery[]
+  interestRequests InterestRequest[]
+
+  @@map("human_child")
+}
+
+model PendingRequest {
+  id            Int       @id @default(autoincrement())
+  userId        Int       @map("user_id")
+  requesterId   Int       @map("requester_id")
+  jobId         Int?      @map("job_id")
+  requesterName String    @map("requester_name") @db.VarChar(255)
+  logo          String?   @db.VarChar(500)
+  status        String    @default("pending") @db.VarChar(20)
+  created       DateTime  @default(now())
+  modified      DateTime  @updatedAt
+
+  user          User      @relation("RequestReceiver", fields: [userId], references: [id], onDelete: Cascade)
+  requester     User      @relation("RequestSender", fields: [requesterId], references: [id], onDelete: Cascade)
+  job           Job?      @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@map("human_pendingrequest")
+}
+
+// =====================
+// COMPANY (HUMANIZE) MODELS
+// =====================
+
+model CompanyOfficialRegistration {
+  id            Int       @id @default(autoincrement())
+  userId        Int       @unique @map("user_id")
+  name          String    @db.VarChar(255)
+  profileName   String    @unique @map("profile_name") @db.VarChar(50)
+  profileSlug   String    @unique @map("profile_slug") @db.VarChar(100)
+  phone         String    @db.VarChar(20)
+  location      String?   @db.VarChar(100)
+  webSite       String?   @map("web_site") @db.VarChar(255)
+  address       String?   @db.Text
+  currentState  String    @default("pending") @map("current_state") @db.VarChar(20)
+  specialFee    Float?    @map("special_fee")
+  specialFlatFee Float?   @map("special_flat_fee")
+  coverImage    String?   @map("cover_image") @db.VarChar(500)
+  created       DateTime  @default(now())
+  modified      DateTime  @updatedAt
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("company_officialregistration")
+}
+
+model CompanyProfile {
+  id                Int       @id @default(autoincrement())
+  userId            Int       @unique @map("user_id")
+  profileVisibility String    @default("public") @map("profile_visibility") @db.VarChar(20)
+  profilePhoto      String?   @map("profile_photo") @db.VarChar(500)
+  companyBrief      String?   @map("company_brief") @db.Text
+  currentState      String    @default("pending") @map("current_state") @db.VarChar(20)
+  created           DateTime  @default(now())
+  modified          DateTime  @updatedAt
+
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("company_profile")
+}
+
+model CompanyHiring {
+  id              Int       @id @default(autoincrement())
+  userId          Int       @unique @map("user_id")
+  assistOnLocation Boolean  @default(false) @map("assist_on_location")
+  currentStatus   String    @default("pending") @map("current_status") @db.VarChar(20)
+  created         DateTime  @default(now())
+  modified        DateTime  @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  modelingTypes   CompanyModelingType[]
+  productionTypes CompanyProductionType[]
+
+  @@map("company_hiring")
+}
+
+model CompanyModelingType {
+  id              Int           @id @default(autoincrement())
+  companyHiringId Int           @map("company_hiring_id")
+  modelingTypeId  Int           @map("modeling_type_id")
+
+  companyHiring   CompanyHiring @relation(fields: [companyHiringId], references: [id], onDelete: Cascade)
+  modelingType    ModelingType  @relation(fields: [modelingTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([companyHiringId, modelingTypeId])
+  @@map("company_modeling_types")
+}
+
+model CompanyProductionType {
+  id               Int            @id @default(autoincrement())
+  companyHiringId  Int            @map("company_hiring_id")
+  productionTypeId Int            @map("production_type_id")
+
+  companyHiring    CompanyHiring  @relation(fields: [companyHiringId], references: [id], onDelete: Cascade)
+  productionType   ProductionType @relation(fields: [productionTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([companyHiringId, productionTypeId])
+  @@map("company_production_types")
+}
+
+model CompanyConnectionRequest {
+  id           Int       @id @default(autoincrement())
+  senderId     Int       @map("sender_id")
+  receiverId   Int       @map("receiver_id")
+  requestState String    @default("pending") @map("request_state") @db.VarChar(20)
+  created      DateTime  @default(now())
+  modified     DateTime  @updatedAt
+
+  sender       User      @relation("ConnectionSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver     User      @relation("ConnectionReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@map("company_connectionrequest")
+}
+
+// =====================
+// JOB MODELS
+// =====================
+
+model Job {
+  id                 Int       @id @default(autoincrement())
+  creatorId          Int       @map("creator_id")
+  projectName        String    @map("project_name") @db.VarChar(255)
+  projectBrief       String    @map("project_brief") @db.Text
+  projectDate        DateTime  @map("project_date")
+  reference          String?   @db.VarChar(500) // image URL
+  budget             Float
+  vat                Float     @default(0)
+  totalAmount        Float     @default(0) @map("total_amount")
+  numberOfPeopleId   Int?      @map("number_of_people_id")
+  type               String    @default("adults") @db.VarChar(10) // adults, kids
+  numberOfHourId     Int?      @map("number_of_hour_id")
+  completed          Boolean   @default(false)
+  postJobOnWall      Boolean   @default(true) @map("post_job_on_wall")
+  submissionType     String    @default("wall") @map("submission_type") @db.VarChar(30)
+  rating             Float?
+  comment            String?   @db.Text
+  transactionId      Int?      @map("transaction_id")
+  paid               Boolean   @default(false)
+  displayAsHumanize  Boolean   @default(false) @map("display_as_humanize")
+  isPrivate          Boolean   @default(false) @map("is_private")
+  created            DateTime  @default(now())
+  modified           DateTime  @updatedAt
+
+  creator            User      @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  numberOfPeople     NumberOfPeople? @relation(fields: [numberOfPeopleId], references: [id])
+  numberOfHour       NumberOfHour? @relation(fields: [numberOfHourId], references: [id])
+  interestRequests   InterestRequest[]
+  pendingRequests    PendingRequest[]
+  jobComments        JobComment[]
+  chatRoom           Room?
+  escrows            Escrow[]
+  modelingTypes      JobModelingType[]
+  preferences        JobPreference[]
+  ageGroups          JobAgeGroup[]
+
+  @@map("job_job")
+}
+
+model JobModelingType {
+  id             Int          @id @default(autoincrement())
+  jobId          Int          @map("job_id")
+  modelingTypeId Int          @map("modeling_type_id")
+
+  job            Job          @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  modelingType   ModelingType @relation(fields: [modelingTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, modelingTypeId])
+  @@map("job_modeling_types")
+}
+
+model JobPreference {
+  id           Int        @id @default(autoincrement())
+  jobId        Int        @map("job_id")
+  preferenceId Int        @map("preference_id")
+
+  job          Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  preference   Preference @relation(fields: [preferenceId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, preferenceId])
+  @@map("job_preferences")
+}
+
+model JobAgeGroup {
+  id         Int      @id @default(autoincrement())
+  jobId      Int      @map("job_id")
+  ageGroupId Int      @map("age_group_id")
+
+  job        Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  ageGroup   AgeGroup @relation(fields: [ageGroupId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, ageGroupId])
+  @@map("job_age_groups")
+}
+
+model InterestRequest {
+  id           Int       @id @default(autoincrement())
+  humanId      Int       @map("human_id")
+  jobId        Int       @map("job_id")
+  childId      Int?      @map("child_id")
+  requestState String    @default("pending") @map("request_state") @db.VarChar(20)
+  acceptedDate DateTime? @map("accepted_date")
+  created      DateTime  @default(now())
+  modified     DateTime  @updatedAt
+
+  human        User      @relation(fields: [humanId], references: [id], onDelete: Cascade)
+  job          Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  child        Child?    @relation(fields: [childId], references: [id], onDelete: SetNull)
+
+  @@map("job_interestrequest")
+}
+
+model NumberOfPeople {
+  id             Int    @id @default(autoincrement())
+  numberOfPeople Int    @map("number_of_people")
+  jobs           Job[]
+
+  @@map("job_numberofpeople")
+}
+
+model NumberOfHour {
+  id           Int    @id @default(autoincrement())
+  numberOfHour Int    @map("number_of_hour")
+  jobs         Job[]
+
+  @@map("job_numberofhour")
+}
+
+model JobComment {
+  id        Int       @id @default(autoincrement())
+  jobId     Int       @map("job_id")
+  userId    Int       @map("user_id")
+  parentId  Int?      @map("parent_id")
+  content   String    @db.Text
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  created   DateTime  @default(now())
+  modified  DateTime  @updatedAt
+
+  job       Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("job_comment")
+}
+
+// =====================
+// CONTEST MODELS
+// =====================
+
+model Contest {
+  id            Int       @id @default(autoincrement())
+  companyId     Int       @map("company_id")
+  image         String?   @db.VarChar(500)
+  title         String    @db.VarChar(255)
+  briefDetails  String    @map("brief_details") @db.Text
+  price         Float     // prize amount KWD
+  vat           Float     @default(0)
+  totalAmount   Float     @default(0) @map("total_amount")
+  done          Boolean   @default(false)
+  startDate     DateTime  @map("start_date")
+  endDate       DateTime  @map("end_date")
+  transactionId Int?      @map("transaction_id")
+  paid          Boolean   @default(false)
+  status        Int       @default(1)
+  created       DateTime  @default(now())
+  modified      DateTime  @updatedAt
+
+  company       User      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  participants  Participate[]
+  categories    ContestContestCategory[]
+  escrows       Escrow[]
+
+  @@map("contest_contest")
+}
+
+model ContestCategory {
+  id         Int       @id @default(autoincrement())
+  categoryEn String    @map("category_en") @db.VarChar(100)
+  categoryAr String    @map("category_ar") @db.VarChar(100)
+  contests   ContestContestCategory[]
+
+  @@map("contest_category")
+}
+
+model ContestContestCategory {
+  id         Int             @id @default(autoincrement())
+  contestId  Int             @map("contest_id")
+  categoryId Int             @map("category_id")
+
+  contest    Contest         @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  category   ContestCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([contestId, categoryId])
+  @@map("contest_contest_categories")
+}
+
+model Participate {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  contestId Int       @map("contest_id")
+  winner    Boolean   @default(false)
+  status    String    @default("submitted") @db.VarChar(20)
+  created   DateTime  @default(now())
+  modified  DateTime  @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contest   Contest   @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  images    ParticipateImage[]
+
+  @@map("contest_participate")
+}
+
+model ParticipateImage {
+  id            Int         @id @default(autoincrement())
+  participateId Int         @map("participate_id")
+  userId        Int         @map("user_id")
+  image         String      @db.VarChar(500)
+  hasVideo      Boolean     @default(false) @map("has_video")
+  isPurchased   Boolean     @default(false) @map("is_purchased")
+  created       DateTime    @default(now())
+
+  participate   Participate @relation(fields: [participateId], references: [id], onDelete: Cascade)
+
+  @@map("contest_participateimage")
+}
+
+// =====================
+// EVENT (CROWDSOURCE) MODELS
+// =====================
+
+model GenericEvent {
+  id                Int       @id @default(autoincrement())
+  creatorId         Int       @map("creator_id")
+  eventName         String    @map("event_name") @db.VarChar(255)
+  eventCategoryId   Int       @map("event_category_id")
+  eventDescription  String    @map("event_description") @db.Text
+  eventAddress      String    @map("event_address") @db.VarChar(255)
+  country           String    @db.VarChar(5)
+  numberOfAttendees Int       @map("number_of_attendees")
+  numberOfHours     Int       @map("number_of_hours")
+  startDate         DateTime  @map("start_date")
+  endDate           DateTime  @map("end_date")
+  image             String?   @db.VarChar(500)
+  budget            Float
+  vat               Float     @default(0)
+  totalAmount       Float     @default(0) @map("total_amount")
+  transactionId     Int?      @map("transaction_id")
+  isUnpaid          Boolean   @default(false) @map("is_unpaid")
+  paid              Boolean   @default(false)
+  created           DateTime  @default(now())
+  modified          DateTime  @updatedAt
+
+  creator           User          @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  category          EventCategory @relation(fields: [eventCategoryId], references: [id])
+  interestRequests  EventInterestRequest[]
+  escrows           Escrow[]
+
+  @@map("crowdsource_genericevent")
+}
+
+model EventCategory {
+  id         Int       @id @default(autoincrement())
+  categoryEn String    @map("category_en") @db.VarChar(100)
+  categoryAr String    @map("category_ar") @db.VarChar(100)
+  isActive   Boolean   @default(true) @map("is_active")
+  events     GenericEvent[]
+
+  @@map("crowdsource_eventcategory")
+}
+
+model EventInterestRequest {
+  id           Int       @id @default(autoincrement())
+  eventId      Int       @map("event_id")
+  humanId      Int       @map("human_id")
+  requestState String    @default("pending") @map("request_state") @db.VarChar(20)
+  acceptedDate DateTime? @map("accepted_date")
+  created      DateTime  @default(now())
+  modified     DateTime  @updatedAt
+
+  event        GenericEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  human        User         @relation(fields: [humanId], references: [id], onDelete: Cascade)
+
+  @@map("crowdsource_eventinterestrequest")
+}
+
+// =====================
+// CHAT MODELS
+// =====================
+
+model Room {
+  id           Int       @id @default(autoincrement())
+  nameId       String    @unique @map("name_id") @db.VarChar(100)
+  creatorId    Int       @map("creator_id")
+  jobId        Int?      @unique @map("job_id")
+  roomType     String    @default("group") @map("room_type") @db.VarChar(10)
+  directHumanId Int?     @map("direct_human_id")
+  creationDate DateTime  @default(now()) @map("creation_date")
+
+  creator      User      @relation("RoomCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  job          Job?      @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  messages     Message[]
+  files        MessageFile[]
+
+  @@map("chat_room")
+}
+
+model Message {
+  id       Int       @id @default(autoincrement())
+  roomId   Int       @map("room_id")
+  senderId Int       @map("sender_id")
+  content  String    @db.Text
+  date     DateTime  @default(now())
+
+  room     Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender   User      @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@map("chat_message")
+}
+
+model MessageFile {
+  id     Int       @id @default(autoincrement())
+  roomId Int       @map("room_id")
+  userId Int       @map("user_id")
+  file   String    @db.VarChar(500)
+  date   DateTime  @default(now())
+
+  room   Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@map("chat_messagefile")
+}
+
+// =====================
+// ESCROW MODELS
+// =====================
+
+model Escrow {
+  id         Int       @id @default(autoincrement())
+  humanizeId Int       @map("humanize_id")
+  humanId    Int?      @map("human_id")
+  jobId      Int?      @map("job_id")
+  eventId    Int?      @map("event_id")
+  contestId  Int?      @map("contest_id")
+  amount     Float
+  status     String    @default("pending") @db.VarChar(30)
+  created    DateTime  @default(now())
+  modified   DateTime  @updatedAt
+
+  job        Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  event      GenericEvent? @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  contest    Contest?      @relation(fields: [contestId], references: [id], onDelete: SetNull)
+
+  @@map("escrow_escrow")
+}
+
+// =====================
+// CONFIGURATION MODELS
+// =====================
+
+model ModelingType {
+  id         Int       @id @default(autoincrement())
+  nameEn     String    @map("name_en") @db.VarChar(100)
+  nameAr     String    @map("name_ar") @db.VarChar(100)
+  order      Int       @default(0)
+  image      String?   @db.VarChar(500)
+  status     Int       @default(1)
+
+  humanModelings  HumanModelingType[]
+  companyHirings  CompanyModelingType[]
+  jobs            JobModelingType[]
+
+  @@map("conf_modelingtype")
+}
+
+model ProductionType {
+  id         Int       @id @default(autoincrement())
+  nameEn     String    @map("name_en") @db.VarChar(100)
+  nameAr     String    @map("name_ar") @db.VarChar(100)
+  status     Int       @default(1)
+
+  humanModelings  HumanProductionType[]
+  companyHirings  CompanyProductionType[]
+
+  @@map("conf_productiontype")
+}
+
+model Preference {
+  id         Int       @id @default(autoincrement())
+  nameEn     String    @map("name_en") @db.VarChar(100)
+  nameAr     String    @map("name_ar") @db.VarChar(100)
+  status     Int       @default(1)
+
+  humanModelings HumanPreference[]
+  jobs           JobPreference[]
+
+  @@map("conf_preference")
+}
+
+model Interest {
+  id         Int       @id @default(autoincrement())
+  nameEn     String?   @map("name_en") @db.VarChar(60)
+  nameAr     String?   @map("name_ar") @db.VarChar(60)
+  slug       String    @unique @db.VarChar(80)
+  status     Int       @default(1)
+  activateDate   DateTime? @map("activate_date")
+  deactivateDate DateTime? @map("deactivate_date")
+
+  profiles   HumanProfileInterest[]
+
+  @@map("conf_interest")
+}
+
+model JobSector {
+  id             Int       @id @default(autoincrement())
+  nameEn         String?   @map("name_en") @db.VarChar(100)
+  nameAr         String?   @map("name_ar") @db.VarChar(100)
+  status         Int       @default(1)
+  activateDate   DateTime? @map("activate_date")
+  deactivateDate DateTime? @map("deactivate_date")
+
+  profiles       HumanProfile[]
+
+  @@map("conf_jobsector")
+}
+
+model AgeGroup {
+  id         Int       @id @default(autoincrement())
+  nameEn     String    @map("name_en") @db.VarChar(100)
+  nameAr     String    @map("name_ar") @db.VarChar(100)
+  minAge     Int       @map("min_age")
+  maxAge     Int?      @map("max_age")
+  status     Int       @default(1)
+
+  jobs       JobAgeGroup[]
+
+  @@map("conf_agegroup")
+}
+
+// =====================
+// NOTIFICATION MODELS
+// =====================
+
+model Notification {
+  id             Int       @id @default(autoincrement())
+  recipientId    Int       @map("recipient_id")
+  verb           String    @db.VarChar(255)
+  description    String?   @db.Text
+  targetType     String?   @map("target_type") @db.VarChar(100)
+  targetId       Int?      @map("target_id")
+  timestamp      DateTime  @default(now())
+  unread         Boolean   @default(true)
+  deleted        Boolean   @default(false)
+  level          String    @default("info") @db.VarChar(20)
+  data           Json?
+
+  recipient      User      @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@map("notifications_notification")
+}
+
+// =====================
+// REPORT MODELS
+// =====================
+
+model Report {
+  id           Int       @id @default(autoincrement())
+  reporterId   Int       @map("reporter_id")
+  abuserId     Int       @map("abuser_id")
+  reason       String    @db.Text
+  imageAbuse   Boolean   @default(false) @map("image_abuse")
+  image        String?   @db.VarChar(500)
+  created      DateTime  @default(now())
+
+  reporter     User      @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  abuser       User      @relation("Abuser", fields: [abuserId], references: [id], onDelete: Cascade)
+
+  @@map("report_report")
+}

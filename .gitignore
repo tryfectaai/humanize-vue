@@ -1,0 +1,68 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.output/
+.nuxt/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+*.tgz
+*.tar.gz
+.cache/
+tmp/
+temp/
+
+# Prisma
+backend/prisma/*.db
+backend/prisma/*.db-journal
+
+# TypeScript
+*.tsbuildinfo
+
+# Vite
+*.local
+
+# Editor directories and files
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+Thumbs.db
+
+# Uploads (keep folder but ignore contents)
+backend/uploads/*
+!backend/uploads/.gitkeep
+frontend/public/uploads/*
+!frontend/public/uploads/.gitkeep
